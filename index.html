@@ -212,6 +212,17 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
         <div class="setting-hint" style="margin-top:5px">通常は Z をマイナス（手前側）にします</div>
       </div>
 
+      <div class="setting-row">
+        <div class="setting-label" style="margin-bottom:6px">🖥 スクリーン位置</div>
+        <div class="cam-inputs">
+          <div class="cam-row">
+            <span class="cam-row-label"><span style="color:#6bb5ff">Z</span> 奥行き</span>
+            <input type="number" id="scr-z" step="0.1" value="0" oninput="updateCamera()">
+          </div>
+        </div>
+        <div class="setting-hint" style="margin-top:5px">通常は Z=0。カメラZ との差が画角に影響します</div>
+      </div>
+
       <hr class="section-divider">
       <div class="setting-section-title">🎨 レンダリング設定</div>
 
@@ -308,6 +319,7 @@ const MAT_MAP={SOLID:0,METAL:1,GLASS:2};
 const RES_MAP={1:128,2:256,3:384,4:512};
 let resScale=2,samples=30,reflects=5,decay=0.75;
 let camPos=[0,0,-1.8];
+let screenPos=[0,0,0];
 let currentView='top';
 let zoomScale=1.0;
 
@@ -337,7 +349,7 @@ function pushSceneToWasm(){
       (obj.normal||[0,1,0])[0],(obj.normal||[0,1,0])[1],(obj.normal||[0,1,0])[2],
       obj.radius||0.3,obj.height||0.5);
   });
-  Module._set_camera(camPos[0],camPos[1],camPos[2],0,0,0);
+  Module._set_camera(camPos[0],camPos[1],camPos[2],screenPos[0],screenPos[1],screenPos[2]);
 }
 
 // ─── RENDER ──────────────────────────────────────────────────────
@@ -397,6 +409,11 @@ function updateCamera(){
     +document.getElementById('cam-x').value,
     +document.getElementById('cam-y').value,
     +document.getElementById('cam-z').value,
+  ];
+  screenPos=[
+    0,
+    0,
+    +document.getElementById('scr-z').value,
   ];
   drawView();
 }
@@ -581,7 +598,7 @@ function duplicateSelected(){
 }
 
 function saveScene(){
-  const data={objects,camPos,nextId};
+  const data={objects,camPos,screenPos,nextId};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.download='scene.json';
@@ -599,11 +616,13 @@ function loadScene(e){
       const data=JSON.parse(ev.target.result);
       objects=data.objects;
       camPos=data.camPos||[0,0,-1.8];
+      screenPos=data.screenPos||[0,0,0];
       nextId=data.nextId||100;
       // カメラUIも更新
       document.getElementById('cam-x').value=camPos[0];
       document.getElementById('cam-y').value=camPos[1];
       document.getElementById('cam-z').value=camPos[2];
+      document.getElementById('scr-z').value=screenPos[2];
       selectedId=null;
       renderList();renderProps();drawView();
     }catch(err){alert('読み込みに失敗しました: '+err.message);}
