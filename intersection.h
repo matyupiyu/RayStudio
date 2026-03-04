@@ -1,5 +1,4 @@
 #include "struct_vec.h"
-#include "made_object_camera.h"
 #ifndef INTERSECTION_H // 二重読み込み防止（おまじない）
 #define INTERSECTION_H
 
