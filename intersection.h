@@ -43,12 +43,9 @@ return -1.0;
 // 有限平面の判別
 
 static inline double intersect_limitplane(Vec cam_o, Vec ray_d, Limitplane l) {
-    // 法線を正規化
-    Vec normal = normalize(l.n);
-    
-    double Dn = dot(ray_d, normal);
+    double Dn = dot(ray_d, l.n);
     if (fabs(Dn) > 1e-6) {
-        double t = dot(normal, (sub(l.o, cam_o))) / Dn;
+        double t = dot(l.n, (sub(l.o, cam_o))) / Dn;
         if (t > 0) {
 
             // 交点の座標ベクトルを求める  
@@ -57,11 +54,14 @@ static inline double intersect_limitplane(Vec cam_o, Vec ray_d, Limitplane l) {
             Vec OP = sub(P, l.o);
 
             // 横方向の単位ベクトルを独自の座標軸として作る
-            Vec WIDE = normalize(l.w_vec);
+            double M = 1 / len(l.w_vec);          
+            Vec WIDE = mul(l.w_vec, M);
 
             // 縦方向の単位ベクトルを独自の座標軸として作る
             // 縦方向と垂直なnと横方向のベクトルを外積することで求まる
-            Vec HEIGHT = cross(WIDE, normal);
+            double N = 1 / len(l.n);
+            Vec O = mul(l.n, N);
+            Vec HEIGHT = cross(WIDE, O);
 
             // 上で求めた独自座標系におけるPの座標を求める
             double WIDE_P = dot(WIDE, OP);

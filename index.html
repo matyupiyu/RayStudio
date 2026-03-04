@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RayStudio</title>
+<title>Ray Tracer</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=DM+Mono:wght@400;500&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -18,7 +18,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);
   overflow:hidden;height:100vh;}
 header{grid-column:1/-1;background:var(--surface);border-bottom:1px solid var(--border);
   display:flex;align-items:center;padding:0 24px;gap:12px;}  
-.logo{font-weight:700;font-size:17px;letter-spacing:-0.3px;color:white;}
+.logo{font-weight:700;font-size:17px;letter-spacing:-0.3px;}
 .logo span{color:var(--accent);}
 .header-sep{flex:1;}
 #wasm-status{font-size:11px;color:var(--muted);font-family:var(--mono);}
@@ -160,7 +160,7 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
 
 <header>
   <button id="sidebar-toggle" class="sidebar-toggle-btn" onclick="toggleSidebar()">☰</button>
-  <a href="https://github.com/matyupiyu/RayStudio" target="_blank" style="text-decoration:none;"><div class="logo">Ray<span>Studio</span></div></a>
+  <div class="logo">Ray<span>Studio</span></div>
   <div class="header-sep"></div>
   <span id="wasm-status">⏳ WASM読込中...</span>
   <button class="save-btn" onclick="undo()" id="undo-btn" title="元に戻す (Ctrl+Z)" style="display:none">↩ 元に戻す</button>
@@ -233,8 +233,8 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
 
       <div class="setting-row">
         <div class="setting-label">解像度 <span id="lbl-res">256×256</span></div>
-        <input type="range" min="1" max="8" value="2" oninput="updateRes(this)">
-        <div class="setting-hint">大きいほど綺麗・遅い。確認用: <b>128~384</b> ／ 本番: <b>512〜1024</b></div>
+        <input type="range" min="1" max="4" value="2" oninput="updateRes(this)">
+        <div class="setting-hint">大きいほど綺麗・遅い。確認用: <b>128</b> ／ 本番: <b>384〜512</b></div>
       </div>
       <div class="setting-row">
         <div class="setting-label">サンプル数 <span id="lbl-samples">30</span></div>
@@ -321,7 +321,7 @@ document.addEventListener('keydown',e=>{
 });
 const TYPE_MAP={SPHERE:0,INFPLANE:1,LIMITPLANE:2,CYLINDER:3,LIGHT:4};
 const MAT_MAP={SOLID:0,METAL:1,GLASS:2};
-const RES_MAP={1:128,2:256,3:384,4:512,5:640,6:768,7:896,8:1024};
+const RES_MAP={1:128,2:256,3:384,4:512};
 let resScale=2,samples=30,reflects=5,decay=0.75;
 let camPos=[0,0,-1.8];
 let screenPos=[0,0,0];
@@ -846,4 +846,5 @@ renderList();renderProps();drawView();loadWasm();
 </script>
 </body>
 </html>
+
 
