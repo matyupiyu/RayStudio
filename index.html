@@ -243,7 +243,7 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
       </div>
       <div class="setting-row">
         <div class="setting-label">反射回数 <span id="lbl-reflects">5</span></div>
-        <input type="range" min="1" max="20" value="5" oninput="updateReflects(this)">
+        <input type="range" min="1" max="50" value="5" oninput="updateReflects(this)">
         <div class="setting-hint">多いほど重い。推奨: <b>2〜3</b></div>
       </div>
       <div class="setting-row">
@@ -846,6 +846,7 @@ renderList();renderProps();drawView();loadWasm();
 </script>
 </body>
 </html>
+
 
 
 
