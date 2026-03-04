@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ray Tracer</title>
+<title>RayStudio</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=DM+Mono:wght@400;500&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -18,7 +18,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);
   overflow:hidden;height:100vh;}
 header{grid-column:1/-1;background:var(--surface);border-bottom:1px solid var(--border);
   display:flex;align-items:center;padding:0 24px;gap:12px;}  
-.logo{font-weight:700;font-size:17px;letter-spacing:-0.3px;}
+.logo{font-weight:700;font-size:17px;letter-spacing:-0.3px;color:white;}
 .logo span{color:var(--accent);}
 .header-sep{flex:1;}
 #wasm-status{font-size:11px;color:var(--muted);font-family:var(--mono);}
@@ -846,3 +846,4 @@ renderList();renderProps();drawView();loadWasm();
 </script>
 </body>
 </html>
+
