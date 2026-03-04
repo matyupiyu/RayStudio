@@ -152,6 +152,33 @@ static inline SurfaceResult intersect_metal_limitplane(Vec o, Vec d, double t, L
     return res;
 }
 
+static inline SurfaceResult intersect_metal_cylinder(Vec o, Vec d, double t, Cylinder c, Vec obj_col){
+    SurfaceResult res;
+    res.next_o = add(o, mul(d, t));
+
+    Vec cp = sub(res.next_o, c.o); // 底面中心から交点へのベクトル
+    double h = dot(cp, c.n); // cpの円柱軸方向の成分
+
+    Vec normal;
+    if (h > c.h - 0.0003){
+        normal = normalize(c.n); // 上面に当たった
+    } else if (h < 0.0003) { // 下面
+        normal = normalize(mul(c.n, -1.0));
+    } else { // 側面
+        normal = normalize(sub(cp, mul(c.n, h)));
+    }
+
+    if (dot(d, normal) > 0){
+        normal = mul(normal, -1.0);
+    }
+
+    res.next_o = offset_pos(res.next_o, normal);
+
+    res.next_d = sub(d, mul(normal, 2.0 * dot(d, normal)));
+    res.color = (Vec){0, 0, 0};
+    return res;
+}
+
 static inline SurfaceResult intersect_metal(Vec o, Vec d, double t, Object obj) {
 
     SurfaceResult result;
@@ -166,6 +193,9 @@ static inline SurfaceResult intersect_metal(Vec o, Vec d, double t, Object obj) 
             break;
         case LIMITPLANE:
             result = intersect_metal_limitplane(o, d, t, obj.l, obj.col);
+            break;
+        case CYLINDER:
+            result = intersect_metal_cylinder(o, d, t, obj.c, obj.col);
             break;
     }
     return result;
