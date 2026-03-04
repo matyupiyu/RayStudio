@@ -30,11 +30,13 @@ void set_object(int idx, int type, int mat,
                 double r, double g, double b,
                 double px, double py, double pz,
                 double nx, double ny, double nz,
-                double radius, double height) {
+                double radius, double height,
+                double wx, double wy, double wz,
+                double lwidth, double lheight) {
 
     if (idx < 0 || idx >= MAX_OBJECTS) return;
 
-    scene[idx].col = (Vec){r, g, b};
+    scene[idx].col  = (Vec){r, g, b};
     scene[idx].type = (Shapetype)type;
     scene[idx].mat  = (Material)mat;
 
@@ -48,8 +50,11 @@ void set_object(int idx, int type, int mat,
             scene[idx].i.n = (Vec){nx, ny, nz};
             break;
         case LIMITPLANE:
-            scene[idx].l.o = (Vec){px, py, pz};
-            scene[idx].l.n = (Vec){nx, ny, nz};
+            scene[idx].l.o      = (Vec){px, py, pz};
+            scene[idx].l.n      = (Vec){nx, ny, nz};
+            scene[idx].l.w_vec  = (Vec){wx, wy, wz};
+            scene[idx].l.width  = lwidth;
+            scene[idx].l.height = lheight;
             break;
         case CYLINDER:
             scene[idx].c.o = (Vec){px, py, pz};
@@ -66,7 +71,7 @@ void set_object(int idx, int type, int mat,
 EMSCRIPTEN_KEEPALIVE
 void set_camera(double ox, double oy, double oz,
                 double sx, double sy, double sz) {
-    cam.o = (Vec){ox, oy, oz};
+    cam.o      = (Vec){ox, oy, oz};
     cam.screen = (Vec){sx, sy, sz};
 }
 
@@ -80,7 +85,7 @@ unsigned char* render(int width, int height, int samples, int reflects, double d
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
 
-            double px = ((double)x / width) * 2.0 - 1.0;
+            double px = ((double)x / width)  * 2.0 - 1.0;
             double py = -(((double)y / height) * 2.0 - 1.0);
 
             Vec ray = normalize(sub((Vec){px, py, cam.screen.z}, cam.o));
@@ -114,7 +119,6 @@ unsigned char* render(int width, int height, int samples, int reflects, double d
                         if (obj.mat == METAL) {
                             SurfaceResult res = intersect_metal(ray_o, ray_d, best_hit.t, obj);
                             throughput = hadamard(throughput, obj.col);
-                            // METALには減衰なし（オリジナル通り）
                             path_color = add(path_color, hadamard(throughput, res.color));
                             ray_o = res.next_o;
                             ray_d = res.next_d;
@@ -123,8 +127,7 @@ unsigned char* render(int width, int height, int samples, int reflects, double d
                         } else {
                             SurfaceResult res = intersect_point(ray_o, ray_d, best_hit.t, obj);
                             throughput = hadamard(throughput, obj.col);
-                            throughput = mul(throughput, decay); // SOLIDのみ減衰（オリジナル通り）
-                            // j==reflects チェックなし、毎バウンス加算（オリジナル通り）
+                            throughput = mul(throughput, decay);
                             path_color = add(path_color, hadamard(throughput, res.color));
                             ray_o = res.next_o;
                             ray_d = res.next_d;
