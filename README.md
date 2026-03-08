@@ -22,6 +22,8 @@ A renderer written in C is compiled to WebAssembly (WASM), allowing you to edit 
 - Multiple light sources supported
 - Configurable sky color (ambient background lighting)
 - 3-direction views (TOP / FRONT / SIDE) to confirm objects
+- Adjustable width and height resolution independently (aspect ratio support)
+- Jittered sampling for smoother anti-aliasing
 - Save and load scenes as JSON files
 - ON/OFF toggle, duplication, and drag-and-drop reordering of objects
 - Zoom and PNG save functionality for rendering results
