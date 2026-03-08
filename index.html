@@ -248,8 +248,13 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
       <div class="setting-section-title">🎨 レンダリング設定</div>
 
       <div class="setting-row">
-        <div class="setting-label">解像度 <span id="lbl-res">256×256</span></div>
-        <input type="range" min="1" max="8" value="2" oninput="updateRes(this)">
+        <div class="setting-label">横解像度 <span id="lbl-res-w">256</span></div>
+        <input type="range" min="1" max="8" value="2" oninput="updateResW(this)">
+        <div class="setting-hint">大きいほど綺麗・遅い。確認用: <b>128~384</b> ／ 本番: <b>512〜1024</b></div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">縦解像度 <span id="lbl-res-h">256</span></div>
+        <input type="range" min="1" max="8" value="2" oninput="updateResH(this)">
         <div class="setting-hint">大きいほど綺麗・遅い。確認用: <b>128~384</b> ／ 本番: <b>512〜1024</b></div>
       </div>
       <div class="setting-row">
@@ -338,7 +343,7 @@ document.addEventListener('keydown',e=>{
 const TYPE_MAP={SPHERE:0,INFPLANE:1,LIMITPLANE:2,CYLINDER:3,LIGHT:4};
 const MAT_MAP={SOLID:0,METAL:1,GLASS:2};
 const RES_MAP={1:128,2:256,3:384,4:512,5:640,6:768,7:896,8:1024};
-let resScale=2,samples=30,reflects=5,decay=0.75;
+let resScaleW=2,resScaleH=2,samples=30,reflects=5,decay=0.75;
 let skyColor=[0.3,0.5,0.7];
 let camPos=[0,0,-1.8];
 let screenPos=[0,0,0];
@@ -390,7 +395,7 @@ async function startRender(){
   btn.disabled=true;btn.textContent='⏳ レンダリング中...';
   pw.classList.add('active');pb.style.width='0%';pt.textContent='シーン送信中...';
   await new Promise(r=>setTimeout(r,30));
-  const w=RES_MAP[resScale],h=RES_MAP[resScale];
+  const w=RES_MAP[resScaleW],h=RES_MAP[resScaleH];
   canvas.width=w;canvas.height=h;
   canvas.style.display='block';
   canvas.style.transform=`scale(${zoomScale})`;
@@ -446,7 +451,8 @@ function updateCamera(){
 }
 
 // ─── SETTINGS ────────────────────────────────────────────────────
-function updateRes(el){resScale=+el.value;document.getElementById('lbl-res').textContent=RES_MAP[resScale]+'×'+RES_MAP[resScale];}
+function updateResW(el){resScaleW=+el.value;document.getElementById('lbl-res-w').textContent=RES_MAP[resScaleW];}
+function updateResH(el){resScaleH=+el.value;document.getElementById('lbl-res-h').textContent=RES_MAP[resScaleH];}
 function updateSamples(el){samples=+el.value;document.getElementById('lbl-samples').textContent=samples;}
 function updateReflects(el){reflects=+el.value;document.getElementById('lbl-reflects').textContent=reflects;}
 function updateDecay(el){decay=+el.value;document.getElementById('lbl-decay').textContent=decay.toFixed(2);}
