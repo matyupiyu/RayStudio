@@ -1,6 +1,6 @@
 # <span style="color:white;">Ray</span><span style="color:#7c6aff;">Studio</span>
 
-[![RayStudio](https://img.shields.io/badge/RayStudio-7c6aff?style=flat-square)](https://matyupiyu.github.io/RayStudio/)  
+[![RayStudio](https://img.shields.io/badge/RayStudio-7c6aff?style=flat-square)](https://machupityu.github.io/RayStudio/)  
 A path tracing raytracing engine that runs in the Web browser.
 A renderer written in C is compiled to WebAssembly (WASM), allowing you to edit scenes and perform rendering from an HTML UI.
 
@@ -29,7 +29,7 @@ A renderer written in C is compiled to WebAssembly (WASM), allowing you to edit 
 
 ## How to Use (For Non-Programmers)
 
-1. Open the site from [here](https://matyupiyu.github.io/RayStudio/)
+1. Open the site from [here](https://machupityu.github.io/RayStudio/)
 2. Select an object from the left list and edit its properties
 3. Only objects that are ON will be rendered
 4. Adjust the sample count and resolution in the settings tab
