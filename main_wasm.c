@@ -95,14 +95,19 @@ unsigned char* render(int width, int height, int samples, int reflects, double d
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
 
-            double px = ((double)x / width)  * 2.0 - 1.0;
-            double py = -(((double)y / height) * 2.0 - 1.0);
-
-            Vec ray = normalize(sub((Vec){px, py, cam.screen.z}, cam.o));
-
             Vec sum_color = {0, 0, 0};
 
             for (int i = 0; i < samples; i++) {
+                // ジッタリングのための乱数値
+                double jx = ((double)rand() / RAND_MAX - 0.5) / width;
+                double jy = ((double)rand() / RAND_MAX - 0.5) / height;
+
+                // アスペクト比補正
+                double aspect = (double)width / height;
+                double px = (((double)x / width) * 2.0 - 1.0 + jx) * aspect;
+                double py = -(((double)y / height) * 2.0 - 1.0) + jy;
+
+                Vec ray = normalize(sub((Vec){px, py, cam.screen.z}, cam.o));
                 Vec ray_d = ray;
                 Vec ray_o = cam.o;
                 Vec throughput = {1.0, 1.0, 1.0};
