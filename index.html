@@ -948,8 +948,7 @@ function _startRenderGPU(){
       [camPos[0],camPos[1],camPos[2]],[screenPos[0],screenPos[1],screenPos[2]],
       [skyColor[0],skyColor[1],skyColor[2]],enabledObjs,
       (prog)=>{pb.style.width=(prog*90+10)+'%';pt.textContent='🚀 GPU中... '+Math.round(prog*100)+'%';},
-      (pixels)=>{
-        canvas.getContext('2d').putImageData(new ImageData(pixels,w,h),0,0);
+      ()=>{
         pb.style.width='100%';pt.textContent='完了！（GPU）';
         document.getElementById('save-btn').style.display='block';
         btn.disabled=false;btn.textContent='▶ レンダリング';
