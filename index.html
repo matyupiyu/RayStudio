@@ -999,7 +999,7 @@ void main(){vec4 a=texture(u_accum,v_uv);vec3 c=a.a>0.0?a.rgb/a.a:vec3(0.0);frag
 class GPURenderer{
   constructor(){this.gl=null;this.fb=[null,null];this.tex=[null,null];this.cur=0;this.quadBuf=null;this.sceneTex=null;this.accumProg=null;this.dispProg=null;this._raf=null;}
   init(){
-    const c=canvas,gl=c.getContext('webgl2');
+    const c=document.getElementById('render-canvas'),gl=c.getContext('webgl2');
     if(!gl)throw new Error('WebGL2 not supported');
     if(!gl.getExtension('EXT_color_buffer_float'))throw new Error('Float texture not supported');
     this.gl=gl;
