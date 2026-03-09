@@ -1,13 +1,10 @@
 # <span style="color:white;">Ray</span><span style="color:#7c6aff;">Studio</span>
-
 [![RayStudio](https://img.shields.io/badge/RayStudio-7c6aff?style=flat-square)](https://machupityu.github.io/RayStudio/)  
 A path tracing raytracing engine that runs in the Web browser.
 A renderer written in C is compiled to WebAssembly (WASM), allowing you to edit scenes and perform rendering from an HTML UI.
 
 ## Demo
-
 > Rendering examples
-
 <p align="center">
   <img src="image101.png" width="30%" />
   <img src="render1.png" width="30%" />
@@ -15,8 +12,8 @@ A renderer written in C is compiled to WebAssembly (WASM), allowing you to edit 
 </p>
 
 ## Features
-
 - Path tracing raytracing engine running on WASM
+- **WebGL2 GPU renderer** — real-time progressive rendering with live preview using GLSL shaders (no compilation required)
 - Ability to place spheres, infinite planes, finite planes, cylinders, and light sources
 - Support for SOLID / METAL / GLASS materials
 - Multiple light sources supported
@@ -30,29 +27,36 @@ A renderer written in C is compiled to WebAssembly (WASM), allowing you to edit 
 - Undo with Ctrl+Z or the undo button
 
 ## How to Use (For Non-Programmers)
-
 1. Open the site from [here](https://machupityu.github.io/RayStudio/)
 2. Select an object from the left list and edit its properties
 3. Only objects that are ON will be rendered
 4. Adjust the sample count and resolution in the settings tab
 5. Press the "Render" button to view the results
-6. Save as PNG with the 💾 button
+6. Toggle between **CPU** and **GPU** mode with the 🖥️/🚀 button in the header
+7. Save as PNG with the 💾 button
+
+## CPU vs GPU Mode
+
+| | CPU (WASM) | GPU (WebGL2) |
+|---|---|---|
+| Rendering | Completes then displays | Progressive live preview |
+| Speed | Slower | Much faster |
+| Requires | renderer.wasm | WebGL2 support |
+
+GPU mode renders progressively — you can see the image take shape in real time as samples accumulate.
 
 ## Build Instructions (For Developers)
-
 ### Requirements
-
 - [Emscripten](https://emscripten.org/) 3.0 or later
 
 ### Compilation
 ```powershell
-emcc main.c -o renderer.js \
-  -s EXPORTED_FUNCTIONS="['_render','_get_buffer_size','_set_object','_set_object_count','_set_camera']" \
-  -s EXPORTED_RUNTIME_METHODS="['ccall','cwrap','HEAPU8']" \
-  -s ALLOW_MEMORY_GROWTH=1 \
+emcc main_wasm.c -o renderer.js `
+  -s EXPORTED_FUNCTIONS="['_render','_get_buffer_size','_set_object','_set_object_count','_set_camera','_set_sky_color']" `
+  -s EXPORTED_RUNTIME_METHODS="['ccall','cwrap','HEAPU8']" `
+  -s ALLOW_MEMORY_GROWTH=1 `
   -O2
 ```
-
 Or run the included `compile.ps1`:
 ```powershell
 powershell -ExecutionPolicy Bypass -File compile.ps1
@@ -62,7 +66,6 @@ powershell -ExecutionPolicy Bypass -File compile.ps1
 ```bash
 python -m http.server 8080
 ```
-
 Open `http://localhost:8080` in your browser.
 
 ## File Structure
@@ -79,13 +82,12 @@ compile.ps1         # Compilation script
 ```
 
 ## Technical Details
-
 - Path tracing sends rays to each pixel for sampling
 - Direct light sampling (with shadow detection)
 - Indirect light through random hemisphere sampling
 - METAL material uses specular reflection, SOLID uses Lambertian reflection
 - Sky color contributes as ambient light when rays miss all objects
+- **GPU renderer** uses GLSL fragment shaders with ping-pong framebuffers (RGBA32F) to accumulate samples across frames. Scene data is passed as a 64×6 RGBA32F texture. Uses PCG-based random number generation for high-quality, artifact-free noise.
 
 ## License
-
 MIT
