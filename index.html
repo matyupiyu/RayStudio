@@ -465,8 +465,7 @@ function _startRenderGPU(){
           canvas.getContext('2d').putImageData(new ImageData(fl,w,h),0,0);
         }
       },
-      (pixels)=>{
-        canvas.getContext('2d').putImageData(new ImageData(pixels,w,h),0,0);
+      ()=>{
         pb.style.width='100%';pt.textContent='完了！（GPU）';
         document.getElementById('save-btn').style.display='block';
         btn.disabled=false;btn.textContent='▶ レンダリング';
@@ -1051,7 +1050,7 @@ void main(){vec4 a=texture(u_accum,v_uv);vec3 c=a.a>0.0?a.rgb/a.a:vec3(0.0);frag
 class GPURenderer{
   constructor(){this.gl=null;this.fb=[null,null];this.tex=[null,null];this.cur=0;this.quadBuf=null;this.sceneTex=null;this.accumProg=null;this.dispProg=null;this._raf=null;}
   init(){
-    const c=document.createElement('canvas'),gl=c.getContext('webgl2');
+    const c=canvas,gl=c.getContext('webgl2');
     if(!gl)throw new Error('WebGL2 not supported');
     if(!gl.getExtension('EXT_color_buffer_float'))throw new Error('Float texture not supported');
     this.gl=gl;
@@ -1133,6 +1132,11 @@ class GPURenderer{
       gl.uniform1i(this._ul(p,'u_spp'),spp);
       gl.uniform1f(this._ul(p,'u_seed'),Math.random()*9999);
       this._draw(p);done+=spp;this.cur^=1;
+      // 途中経過をcanvasに直接表示
+      gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,w,h);
+      gl.useProgram(this.dispProg);
+      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.tex[this.cur^1]);
+      gl.uniform1i(this._ul(this.dispProg,'u_accum'),0);this._draw(this.dispProg);
       onProg(done/totalSpp);
       this._raf=requestAnimationFrame(frame);
     };
