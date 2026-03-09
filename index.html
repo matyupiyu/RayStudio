@@ -168,6 +168,7 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
   <span id="wasm-status">⏳ WASM読込中...</span>
   <button class="save-btn" onclick="undo()" id="undo-btn" title="元に戻す (Ctrl+Z)" style="display:none">↩ 元に戻す</button>
   <button class="save-btn" onclick="saveImage()" id="save-btn" style="display:none">💾 保存</button>
+  <button id="gpu-toggle-btn" onclick="toggleGPU()" title="GPU/CPU切替" style="background:var(--surface2);border:1px solid var(--accent);color:var(--accent);font-family:var(--font);font-size:12px;padding:6px 10px;border-radius:6px;cursor:pointer;margin-right:4px;">🖥️ CPU</button>
   <button class="render-btn" onclick="startRender()" id="render-btn">▶ レンダリング</button>
 </header>
 
@@ -358,6 +359,8 @@ let zoomScale=1.0;
 
 // ─── WASM ────────────────────────────────────────────────────────
 let wasmReady=false;
+let gpuEnabled=false;
+let gpuRenderer=null;
 function loadWasm(){
   const s=document.createElement('script');
   s.src='renderer.js';
@@ -392,6 +395,7 @@ function pushSceneToWasm(){
 
 // ─── RENDER ──────────────────────────────────────────────────────
 async function startRender(){
+  if(gpuEnabled&&gpuRenderer){_startRenderGPU();return;}
   if(!wasmReady){alert('WASMがまだ読み込まれていません。');return;}
   const btn=document.getElementById('render-btn');
   const pw=document.getElementById('progress-wrap');
@@ -422,6 +426,57 @@ async function startRender(){
     setTimeout(()=>pw.classList.remove('active'),2000);
   }catch(e){pt.textContent='エラー: '+e.message;console.error(e);}
   btn.disabled=false;btn.textContent='▶ レンダリング';
+}
+
+function _startRenderGPU(){
+  const btn=document.getElementById('render-btn');
+  const pw=document.getElementById('progress-wrap');
+  const pb=document.getElementById('progress-bar');
+  const pt=document.getElementById('progress-text');
+  const canvas=document.getElementById('render-canvas');
+  btn.disabled=true;btn.textContent='⏳ GPUレンダリング中...';
+  pw.classList.add('active');pb.style.width='0%';pt.textContent='GPUシェーダー初期化中...';
+  const w=resW,h=resH;
+  canvas.width=w;canvas.height=h;
+  canvas.style.display='block';
+  canvas.style.transform=`scale(${zoomScale})`;
+  document.getElementById('placeholder').style.display='none';
+  document.getElementById('zoom-controls').style.display='flex';
+  const enabledObjs=objects.filter(o=>o.enabled!==false);
+  const skyColor_=[skyColor[0],skyColor[1],skyColor[2]];
+  const camPos_=[camPos[0],camPos[1],camPos[2]];
+  const screenPos_=[screenPos[0],screenPos[1],screenPos[2]];
+  try{
+    gpuRenderer.render(w,h,samples,reflects,decay,camPos_,screenPos_,skyColor_,enabledObjs,
+      (prog)=>{
+        pb.style.width=(prog*90+10)+'%';
+        pt.textContent='🚀 GPUレンダリング中... '+Math.round(prog*100)+'%';
+        // live preview every 10 frames
+        if(Math.round(prog*samples)%10===0){
+          const gl=gpuRenderer.gl;
+          gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,w,h);
+          gl.useProgram(gpuRenderer.dispProg);
+          gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,gpuRenderer.tex[gpuRenderer.cur^1]);
+          gl.uniform1i(gpuRenderer._ul(gpuRenderer.dispProg,'u_accum'),0);
+          gpuRenderer._draw(gpuRenderer.dispProg);
+          const px=new Uint8Array(w*h*4);gl.readPixels(0,0,w,h,gl.RGBA,gl.UNSIGNED_BYTE,px);
+          const fl=new Uint8ClampedArray(w*h*4);
+          for(let y=0;y<h;y++){const s=(h-1-y)*w*4,d=y*w*4;fl.set(px.subarray(s,s+w*4),d);}
+          canvas.getContext('2d').putImageData(new ImageData(fl,w,h),0,0);
+        }
+      },
+      (pixels)=>{
+        canvas.getContext('2d').putImageData(new ImageData(pixels,w,h),0,0);
+        pb.style.width='100%';pt.textContent='完了！（GPU）';
+        document.getElementById('save-btn').style.display='block';
+        btn.disabled=false;btn.textContent='▶ レンダリング';
+        setTimeout(()=>pw.classList.remove('active'),2000);
+      }
+    );
+  }catch(e){
+    pt.textContent='GPUエラー: '+e.message;console.error(e);
+    btn.disabled=false;btn.textContent='▶ レンダリング';
+  }
 }
 
 // ─── ZOOM ────────────────────────────────────────────────────────
@@ -911,7 +966,181 @@ function toggleSidebar(){
   sidebar.classList.toggle('hidden');
 }
 renderList();renderProps();drawView();loadWasm();
-</script>
-</body>
 
+// ─── GPU RENDERER ────────────────────────────────────────────────
+function toggleGPU(){
+  const btn=document.getElementById('gpu-toggle-btn');
+  if(!gpuEnabled){
+    if(!gpuRenderer){
+      try{gpuRenderer=new GPURenderer();gpuRenderer.init();}
+      catch(e){alert('WebGL2非対応: '+e.message);return;}
+    }
+    gpuEnabled=true;btn.textContent='🚀 GPU';
+    btn.style.background='var(--accent)';btn.style.color='white';
+  }else{
+    gpuEnabled=false;btn.textContent='🖥️ CPU';
+    btn.style.background='var(--surface2)';btn.style.color='var(--accent)';
+  }
+}
+
+function _startRenderGPU(){
+  const btn=document.getElementById('render-btn'),pw=document.getElementById('progress-wrap');
+  const pb=document.getElementById('progress-bar'),pt=document.getElementById('progress-text');
+  const canvas=document.getElementById('render-canvas');
+  btn.disabled=true;btn.textContent='⏳ GPUレンダリング中...';
+  pw.classList.add('active');pb.style.width='0%';pt.textContent='GPUシェーダー初期化中...';
+  const w=resW,h=resH;
+  canvas.width=w;canvas.height=h;canvas.style.display='block';
+  canvas.style.transform=`scale(${zoomScale})`;
+  document.getElementById('placeholder').style.display='none';
+  document.getElementById('zoom-controls').style.display='flex';
+  const enabledObjs=objects.filter(o=>o.enabled!==false);
+  try{
+    gpuRenderer.render(w,h,samples,reflects,decay,
+      [camPos[0],camPos[1],camPos[2]],[screenPos[0],screenPos[1],screenPos[2]],
+      [skyColor[0],skyColor[1],skyColor[2]],enabledObjs,
+      (prog)=>{pb.style.width=(prog*90+10)+'%';pt.textContent='🚀 GPU中... '+Math.round(prog*100)+'%';},
+      (pixels)=>{
+        canvas.getContext('2d').putImageData(new ImageData(pixels,w,h),0,0);
+        pb.style.width='100%';pt.textContent='完了！（GPU）';
+        document.getElementById('save-btn').style.display='block';
+        btn.disabled=false;btn.textContent='▶ レンダリング';
+        setTimeout(()=>pw.classList.remove('active'),2000);
+      }
+    );
+  }catch(e){pt.textContent='GPUエラー: '+e.message;console.error(e);btn.disabled=false;btn.textContent='▶ レンダリング';}
+}
+
+
+const _VERT_SRC = `#version 300 es
+in vec2 a_pos;out vec2 v_uv;
+void main(){v_uv=a_pos*0.5+0.5;gl_Position=vec4(a_pos,0.0,1.0);}`;
+const _ACCUM_SRC = `#version 300 es
+precision highp float;precision highp int;
+#define SPHERE 0
+#define INFPLANE 1
+#define LIMITPLANE 2
+#define CYLINDER 3
+#define LIGHT 4
+#define SOLID 0
+#define METAL 1
+#define GLASS 2
+uniform int u_n;uniform sampler2D u_scene;uniform vec3 u_cam;uniform float u_sz;
+uniform vec3 u_sky;uniform float u_aspect;uniform int u_reflects;uniform float u_decay;
+uniform int u_spp;uniform sampler2D u_prev;uniform float u_seed;
+in vec2 v_uv;out vec4 fragColor;
+uint g_seed_u;
+float rng(){g_seed_u=g_seed_u*747796405u+2891336453u;uint s=((g_seed_u>>((g_seed_u>>28u)+4u))^g_seed_u)*277803737u;s=(s>>22u)^s;return float(s)/4294967295.0;}
+vec4 sc(int i,int row){return texelFetch(u_scene,ivec2(i,row),0);}
+float isp(vec3 o,vec3 d,vec3 c,float r){vec3 co=o-c;float a=dot(d,d),b=2.0*dot(co,d),C=dot(co,co)-r*r,D=b*b-4.0*a*C;if(D>1e-9){float t=(-b-sqrt(D))/(2.0*a);if(t>1e-6)return t;t=(-b+sqrt(D))/(2.0*a);if(t>1e-6)return t;}return -1.0;}
+float ipl(vec3 o,vec3 d,vec3 p,vec3 n){float dn=dot(d,n);if(abs(dn)<1e-6)return -1.0;float t=dot(n,p-o)/dn;return t>0.0?t:-1.0;}
+float ilp(vec3 o,vec3 d,vec3 c,vec3 n,vec3 w,float lw,float lh){float dn=dot(d,n);if(abs(dn)<1e-6)return -1.0;float t=dot(n,c-o)/dn;if(t<=0.0)return -1.0;vec3 p=o+d*t,op=p-c,wd=normalize(w),ht=cross(wd,normalize(n));if(abs(dot(wd,op))<=lw*0.5&&abs(dot(ht,op))<=lh*0.5)return t;return -1.0;}
+float icy(vec3 o,vec3 d,vec3 c,vec3 ax,float r,float h){vec3 co=o-c;float da=dot(d,ax),ca=dot(co,ax),a=dot(d,d)-da*da,b=2.0*(dot(d,co)-da*ca),C=dot(co,co)-ca*ca-r*r,D=b*b-4.0*a*C;float mt=1e30;if(D>1e-9&&abs(a)>1e-9){float ts=(-b-sqrt(D))/(2.0*a);if(ts>1e-6){float hh=dot(o+d*ts-c,ax);if(hh>=0.0&&hh<=h)mt=ts;}}float dn=dot(d,ax);if(abs(dn)>1e-6){float tb=dot(c-o,ax)/dn;if(tb>1e-6&&tb<mt){vec3 pb=o+d*tb-c;if(dot(pb,pb)<=r*r)mt=tb;}vec3 top=c+ax*h;float tt=dot(top-o,ax)/dn;if(tt>1e-6&&tt<mt){vec3 pt=o+d*tt-top;if(dot(pt,pt)<=r*r)mt=tt;}}return mt<1e29?mt:-1.0;}
+float iobj(vec3 o,vec3 d,int i){int tp=int(sc(i,0).x);vec4 d2=sc(i,2),d3=sc(i,3);if(tp==SPHERE)return isp(o,d,d2.xyz,d2.w);if(tp==INFPLANE)return ipl(o,d,d2.xyz,d3.xyz);if(tp==LIMITPLANE)return ilp(o,d,d2.xyz,d3.xyz,sc(i,4).xyz,sc(i,5).x,sc(i,5).y);if(tp==CYLINDER)return icy(o,d,d2.xyz,d3.xyz,d2.w,d3.w);return -1.0;}
+void closest(vec3 o,vec3 d,out float bt,out int bi){bt=1e30;bi=-1;for(int i=0;i<64;i++){if(i>=u_n)break;if(int(sc(i,0).x)==LIGHT)continue;float t=iobj(o,d,i);if(t>1e-6&&t<bt){bt=t;bi=i;}}}
+vec3 gn(vec3 o,vec3 d,float t,int id){int tp=int(sc(id,0).x);vec4 d2=sc(id,2),d3=sc(id,3);vec3 hp=o+d*t;if(tp==SPHERE)return normalize(hp-d2.xyz);if(tp==INFPLANE||tp==LIMITPLANE){vec3 n=normalize(d3.xyz);return dot(d,n)>0.0?-n:n;}if(tp==CYLINDER){vec3 ax=normalize(d3.xyz),cp=hp-d2.xyz;float h=dot(cp,ax);if(h>d3.w-0.001)return ax;if(h<0.001)return -ax;return normalize(cp-ax*h);}return vec3(0,1,0);}
+vec3 direct(vec3 n,vec3 p,vec3 col){vec3 res=vec3(0.0);for(int i=0;i<64;i++){if(i>=u_n)break;if(int(sc(i,0).x)!=LIGHT)continue;vec3 lp=sc(i,2).xyz,lc=sc(i,1).xyz,ld=lp-p;float dist=length(ld);vec3 ln=ld/dist;float ct=dot(n,ln);if(ct<=0.0)continue;bool shd=false;for(int j=0;j<64;j++){if(j>=u_n||j==i)continue;if(int(sc(j,0).x)==LIGHT)continue;if(int(sc(j,0).y)==GLASS)continue;float ht=iobj(p,ln,j);if(ht>0.001&&ht<dist){shd=true;break;}}if(!shd)res+=lc*col*ct;}return res;}
+vec3 hemi(vec3 n){float r1=rng(),r2=rng(),phi=6.28318*r1,ct=sqrt(r2),st=sqrt(1.0-r2);vec3 up=abs(n.x)<0.9?vec3(1,0,0):vec3(0,1,0),t=normalize(cross(n,up)),b=cross(n,t);return normalize(st*cos(phi)*t+st*sin(phi)*b+ct*n);}
+vec3 trace(vec3 ro,vec3 rd){vec3 tp=vec3(1.0),col=vec3(0.0);for(int b=0;b<=20;b++){if(b>u_reflects)break;float t;int id;closest(ro,rd,t,id);if(id==-1){col+=tp*u_sky;break;}int mat=int(sc(id,0).y);float ri=sc(id,0).z;vec3 oc=sc(id,1).xyz,hp=ro+rd*t,n=gn(ro,rd,t,id),op=hp+n*0.001;if(mat==METAL){tp*=oc;ro=op;rd=reflect(rd,n);}else if(mat==GLASS&&int(sc(id,0).x)==SPHERE){vec3 sc2=sc(id,2).xyz;float sr=sc(id,2).w,c1=-dot(rd,normalize(hp-sc2));float s1=sqrt(max(0.0,1.0-c1*c1)),s2=s1/ri;if(s2>=1.0)break;float c2=sqrt(1.0-s2*s2);vec3 en=normalize(hp-sc2),fd=normalize(rd/ri+en*(c1/ri-c2)),fo=hp-en*0.001;float et=isp(fo,fd,sc2,sr);if(et<=0.0)break;vec3 ep=fo+fd*et,xn=normalize(ep-sc2);float c3=dot(fd,xn),s3=sqrt(max(0.0,1.0-c3*c3)),s4=s3*ri;if(s4>=1.0)break;float c4=sqrt(1.0-s4*s4);tp*=oc;ro=ep+xn*0.001;rd=normalize(fd*ri+(-xn)*(ri*c3-c4));}else{tp*=oc*u_decay;col+=tp*direct(n,op,oc);ro=op;rd=hemi(n);}}return col;}
+void main(){g_seed_u=uint(gl_FragCoord.x*1973.0+gl_FragCoord.y*9277.0+u_seed*26699.0);vec3 total=vec3(0.0);for(int s=0;s<10;s++){if(s>=u_spp)break;ivec2 res=textureSize(u_prev,0);float jx=(rng()-0.5)/float(res.x),jy=(rng()-0.5)/float(res.y);float px=(v_uv.x*2.0-1.0+jx)*u_aspect,py=-(v_uv.y*2.0-1.0)+jy;total+=trace(u_cam,normalize(vec3(px,py,u_sz)-u_cam));}vec4 prev=texture(u_prev,v_uv);fragColor=vec4(prev.rgb+total,prev.a+float(u_spp));}`;
+const _DISP_SRC = `#version 300 es
+precision highp float;
+uniform sampler2D u_accum;in vec2 v_uv;out vec4 fragColor;
+void main(){vec4 a=texture(u_accum,v_uv);vec3 c=a.a>0.0?a.rgb/a.a:vec3(0.0);fragColor=vec4(clamp(c,0.0,1.0),1.0);}`;
+
+class GPURenderer{
+  constructor(){this.gl=null;this.fb=[null,null];this.tex=[null,null];this.cur=0;this.quadBuf=null;this.sceneTex=null;this.accumProg=null;this.dispProg=null;this._raf=null;}
+  init(){
+    const c=document.createElement('canvas'),gl=c.getContext('webgl2');
+    if(!gl)throw new Error('WebGL2 not supported');
+    if(!gl.getExtension('EXT_color_buffer_float'))throw new Error('Float texture not supported');
+    this.gl=gl;
+    const vs=_VERT_SRC;
+    this.accumProg=this._prog(vs,_ACCUM_SRC);
+    this.dispProg=this._prog(vs,_DISP_SRC);
+    const v=new Float32Array([-1,-1,1,-1,-1,1,1,1]);
+    this.quadBuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,this.quadBuf);gl.bufferData(gl.ARRAY_BUFFER,v,gl.STATIC_DRAW);
+  }
+  _prog(vs,fs){
+    const gl=this.gl;
+    const v=gl.createShader(gl.VERTEX_SHADER);gl.shaderSource(v,vs);gl.compileShader(v);
+    if(!gl.getShaderParameter(v,gl.COMPILE_STATUS))throw new Error('VS:'+gl.getShaderInfoLog(v));
+    const f=gl.createShader(gl.FRAGMENT_SHADER);gl.shaderSource(f,fs);gl.compileShader(f);
+    if(!gl.getShaderParameter(f,gl.COMPILE_STATUS))throw new Error('FS:'+gl.getShaderInfoLog(f));
+    const p=gl.createProgram();gl.attachShader(p,v);gl.attachShader(p,f);gl.linkProgram(p);
+    if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error('Link:'+gl.getProgramInfoLog(p));
+    return p;
+  }
+  _ul(p,n){return this.gl.getUniformLocation(p,n);}
+  _draw(p){const gl=this.gl,loc=gl.getAttribLocation(p,'a_pos');gl.bindBuffer(gl.ARRAY_BUFFER,this.quadBuf);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);}
+  _setupFB(w,h){
+    const gl=this.gl;this.gl.canvas.width=w;this.gl.canvas.height=h;
+    for(let i=0;i<2;i++){
+      if(this.tex[i])gl.deleteTexture(this.tex[i]);if(this.fb[i])gl.deleteFramebuffer(this.fb[i]);
+      this.tex[i]=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,this.tex[i]);
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,w,h,0,gl.RGBA,gl.FLOAT,null);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+      this.fb[i]=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,this.fb[i]);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,this.tex[i],0);
+      gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  }
+  _buildSceneTex(objs){
+    const gl=this.gl,n=Math.min(objs.length,64),TM={SPHERE:0,INFPLANE:1,LIMITPLANE:2,CYLINDER:3,LIGHT:4},MM={SOLID:0,METAL:1,GLASS:2};
+    const data=new Float32Array(64*6*4);
+    for(let i=0;i<n;i++){
+      const o=objs[i],pos=o.pos||[0,0,0],nrm=o.normal||[0,1,0],wv=o.w_vec||[1,0,0];
+      let b=(0*64+i)*4;data[b]=(TM[o.type]??0);data[b+1]=(MM[o.mat]??0);data[b+2]=(o.refractive_index||1.5);
+      b=(1*64+i)*4;data[b]=o.col[0];data[b+1]=o.col[1];data[b+2]=o.col[2];
+      b=(2*64+i)*4;data[b]=pos[0];data[b+1]=pos[1];data[b+2]=pos[2];data[b+3]=(o.radius||0.3);
+      b=(3*64+i)*4;data[b]=nrm[0];data[b+1]=nrm[1];data[b+2]=nrm[2];data[b+3]=(o.height||0.5);
+      b=(4*64+i)*4;data[b]=wv[0];data[b+1]=wv[1];data[b+2]=wv[2];
+      b=(5*64+i)*4;data[b]=(o.lwidth||1.0);data[b+1]=(o.lheight||1.0);
+    }
+    if(this.sceneTex)gl.deleteTexture(this.sceneTex);
+    this.sceneTex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,this.sceneTex);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,64,6,0,gl.RGBA,gl.FLOAT,data);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  }
+  render(w,h,totalSpp,reflects,decay,cam,screen,sky,objs,onProg,onDone){
+    if(this._raf){cancelAnimationFrame(this._raf);this._raf=null;}
+    this._setupFB(w,h);this._buildSceneTex(objs);this.cur=0;
+    const gl=this.gl,aspect=w/h,SPF=2;let done=0;
+    const frame=()=>{
+      if(done>=totalSpp){
+        gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,w,h);
+        gl.useProgram(this.dispProg);
+        gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.tex[this.cur^1]);
+        gl.uniform1i(this._ul(this.dispProg,'u_accum'),0);this._draw(this.dispProg);
+        const px=new Uint8Array(w*h*4);gl.readPixels(0,0,w,h,gl.RGBA,gl.UNSIGNED_BYTE,px);
+        onDone(new Uint8ClampedArray(px.buffer));return;
+      }
+      const spp=Math.min(SPF,totalSpp-done);
+      gl.bindFramebuffer(gl.FRAMEBUFFER,this.fb[this.cur]);gl.viewport(0,0,w,h);
+      gl.useProgram(this.accumProg);const p=this.accumProg;
+      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.sceneTex);gl.uniform1i(this._ul(p,'u_scene'),0);
+      gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.tex[this.cur^1]);gl.uniform1i(this._ul(p,'u_prev'),1);
+      gl.uniform1i(this._ul(p,'u_n'),objs.length);
+      gl.uniform3fv(this._ul(p,'u_cam'),new Float32Array(cam));
+      gl.uniform1f(this._ul(p,'u_sz'),screen[2]||0);
+      gl.uniform3fv(this._ul(p,'u_sky'),new Float32Array(sky));
+      gl.uniform1f(this._ul(p,'u_aspect'),aspect);
+      gl.uniform1i(this._ul(p,'u_reflects'),reflects);
+      gl.uniform1f(this._ul(p,'u_decay'),decay);
+      gl.uniform1i(this._ul(p,'u_spp'),spp);
+      gl.uniform1f(this._ul(p,'u_seed'),Math.random()*9999);
+      this._draw(p);done+=spp;this.cur^=1;
+      onProg(done/totalSpp);
+      this._raf=requestAnimationFrame(frame);
+    };
+    this._raf=requestAnimationFrame(frame);
+  }
+}
+
+</script>
+
+</body>
 </html>
